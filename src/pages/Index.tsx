@@ -30,7 +30,7 @@ export default function Index() {
   const [selectedVersion, setSelectedVersion] = useState<Version | null>(versions[0]);
   const [viewMode, setViewMode] = useState<ViewMode>('editor');
   const [isPRModalOpen, setIsPRModalOpen] = useState(false);
-  const [isPlaygroundExpanded, setIsPlaygroundExpanded] = useState(false);
+  const [isPlaygroundOpen, setIsPlaygroundOpen] = useState(false);
 
   const tokenCount = estimateTokens(promptContent);
   const tokenCost = calculateCost(selectedModel, tokenCount, 300);
@@ -46,7 +46,6 @@ export default function Index() {
             break;
           case 'k':
             e.preventDefault();
-            // Focus search (would be implemented)
             toast.info('Search focused (Cmd/Ctrl + K)');
             break;
         }
@@ -130,6 +129,7 @@ export default function Index() {
                       onSave={handleSave}
                       onBranch={handleBranch}
                       onPR={() => setIsPRModalOpen(true)}
+                      onOpenPlayground={() => setIsPlaygroundOpen(true)}
                     />
                   </div>
 
@@ -178,13 +178,6 @@ export default function Index() {
               )}
             </AnimatePresence>
           </div>
-
-          {/* Playground Panel */}
-          <Playground
-            selectedModel={selectedModel}
-            isExpanded={isPlaygroundExpanded}
-            onToggleExpand={() => setIsPlaygroundExpanded(!isPlaygroundExpanded)}
-          />
         </main>
       </div>
 
@@ -193,6 +186,13 @@ export default function Index() {
         isOpen={isPRModalOpen}
         onClose={() => setIsPRModalOpen(false)}
         sourceBranch={selectedVersion?.name || 'feature/multi-turn'}
+      />
+
+      {/* Playground Modal */}
+      <Playground
+        selectedModel={selectedModel}
+        isOpen={isPlaygroundOpen}
+        onClose={() => setIsPlaygroundOpen(false)}
       />
     </div>
   );

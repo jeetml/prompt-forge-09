@@ -2,8 +2,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Play,
-  ChevronUp,
-  ChevronDown,
+  X,
   Eye,
   EyeOff,
   CheckCircle,
@@ -12,6 +11,12 @@ import {
   Loader2,
   Upload,
   Sparkles,
+  Zap,
+  Terminal,
+  FlaskConical,
+  RotateCcw,
+  Copy,
+  Check,
 } from 'lucide-react';
 import { Model, Version, versions, testCases as mockTestCases, TestCase } from '@/lib/mockData';
 import { Button } from '@/components/ui/button';
@@ -24,16 +29,23 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
 interface PlaygroundProps {
   selectedModel: Model;
-  isExpanded: boolean;
-  onToggleExpand: () => void;
+  isOpen: boolean;
+  onClose: () => void;
 }
 
-export function Playground({ selectedModel, isExpanded, onToggleExpand }: PlaygroundProps) {
+export function Playground({ selectedModel, isOpen, onClose }: PlaygroundProps) {
   const [selectedVersion, setSelectedVersion] = useState<string>(versions[0].id);
   const [input, setInput] = useState('Hello, can you help me with a coding question?');
   const [output, setOutput] = useState('');
@@ -42,12 +54,13 @@ export function Playground({ selectedModel, isExpanded, onToggleExpand }: Playgr
   const [showGoldenComparison, setShowGoldenComparison] = useState(false);
   const [testCases, setTestCases] = useState<TestCase[]>(mockTestCases);
   const [isRunningTests, setIsRunningTests] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [activeTab, setActiveTab] = useState('playground');
 
   const handleRun = async () => {
     setIsRunning(true);
     setOutput('');
 
-    // Simulate API call
     await new Promise((resolve) => setTimeout(resolve, 1500));
 
     const mockResponse = `Hello! I'd be happy to help you with your coding question. What specific problem or topic would you like assistance with?
@@ -68,9 +81,8 @@ Just share the details and I'll do my best to assist you!`;
   const handleRunTests = async () => {
     setIsRunningTests(true);
 
-    // Simulate running tests one by one
     for (let i = 0; i < testCases.length; i++) {
-      await new Promise((resolve) => setTimeout(resolve, 800));
+      await new Promise((resolve) => setTimeout(resolve, 600));
       setTestCases((prev) =>
         prev.map((tc, idx) =>
           idx === i
@@ -84,97 +96,215 @@ Just share the details and I'll do my best to assist you!`;
     toast.success('Test run completed');
   };
 
+  const handleResetTests = () => {
+    setTestCases(mockTestCases.map(tc => ({ ...tc, status: 'pending' as const })));
+  };
+
+  const handleCopyOutput = () => {
+    navigator.clipboard.writeText(output);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   const goldenOutput = 'Hello! I\'m doing well, thank you for asking. How can I assist you today?';
+  
+  const passedCount = testCases.filter(tc => tc.status === 'passed').length;
+  const failedCount = testCases.filter(tc => tc.status === 'failed').length;
 
   return (
-    <motion.div
-      initial={false}
-      animate={{ height: isExpanded ? 'auto' : 56 }}
-      transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-      className="border-t border-border/50 bg-card/50 backdrop-blur-xl overflow-hidden"
-    >
-      {/* Header */}
-      <button
-        onClick={onToggleExpand}
-        className="w-full h-14 px-6 flex items-center justify-between hover:bg-secondary/30 transition-smooth"
-      >
-        <div className="flex items-center gap-3">
-          <Sparkles className="w-4 h-4 text-primary" />
-          <span className="font-medium">Playground & Testing</span>
-          {!isExpanded && (
-            <span className="text-xs text-muted-foreground">
-              Click to expand
-            </span>
-          )}
-        </div>
-        {isExpanded ? (
-          <ChevronDown className="w-5 h-5 text-muted-foreground" />
-        ) : (
-          <ChevronUp className="w-5 h-5 text-muted-foreground" />
-        )}
-      </button>
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-4xl h-[85vh] p-0 gap-0 bg-card/95 backdrop-blur-xl border-border/50 overflow-hidden">
+        {/* Header */}
+        <DialogHeader className="p-6 pb-0">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+                <FlaskConical className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <DialogTitle className="text-lg font-semibold">Playground & Testing</DialogTitle>
+                <p className="text-sm text-muted-foreground">Run prompts and validate with test cases</p>
+              </div>
+            </div>
+          </div>
+        </DialogHeader>
 
-      {/* Content */}
-      <AnimatePresence>
-        {isExpanded && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="p-6 space-y-6"
-          >
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Left: Input/Output */}
-              <div className="space-y-4">
-                {/* Controls */}
-                <div className="flex items-center gap-4">
-                  <div className="flex-1">
-                    <label className="text-xs text-muted-foreground mb-1 block">
-                      Prompt Version
-                    </label>
-                    <Select value={selectedVersion} onValueChange={setSelectedVersion}>
-                      <SelectTrigger className="bg-secondary/30">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {versions.map((v) => (
-                          <SelectItem key={v.id} value={v.id}>
-                            {v.name}
+        {/* Tabs */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
+          <div className="px-6 pt-4">
+            <TabsList className="bg-secondary/30 p-1">
+              <TabsTrigger value="playground" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                <Terminal className="w-4 h-4" />
+                Playground
+              </TabsTrigger>
+              <TabsTrigger value="tests" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                <Zap className="w-4 h-4" />
+                Regression Tests
+                {(passedCount > 0 || failedCount > 0) && (
+                  <span className="ml-1 text-xs">
+                    <span className="text-success">{passedCount}</span>
+                    <span className="text-muted-foreground">/</span>
+                    <span className="text-destructive">{failedCount}</span>
+                  </span>
+                )}
+              </TabsTrigger>
+            </TabsList>
+          </div>
+
+          {/* Playground Tab */}
+          <TabsContent value="playground" className="flex-1 overflow-auto m-0 p-6 pt-4">
+            <div className="space-y-5">
+              {/* Controls */}
+              <div className="flex items-center gap-4">
+                <div className="flex-1">
+                  <label className="text-xs text-muted-foreground mb-1.5 block font-medium">
+                    Prompt Version
+                  </label>
+                  <Select value={selectedVersion} onValueChange={setSelectedVersion}>
+                    <SelectTrigger className="bg-secondary/30 border-border/50">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {versions.map((v) => (
+                        <SelectItem key={v.id} value={v.id}>
+                          <div className="flex items-center gap-2">
+                            <span>{v.name}</span>
                             {v.isProduction && (
-                              <span className="ml-2 text-success text-2xs">(prod)</span>
+                              <span className="px-1.5 py-0.5 text-[10px] rounded-full bg-success/20 text-success font-medium">
+                                PROD
+                              </span>
                             )}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex-1">
+                  <label className="text-xs text-muted-foreground mb-1.5 block font-medium">Model</label>
+                  <div className="px-3 py-2.5 rounded-lg bg-secondary/30 border border-border/50 text-sm flex items-center gap-2">
+                    <Sparkles className="w-3.5 h-3.5 text-primary" />
+                    {selectedModel.name}
                   </div>
-                  <div className="flex-1">
-                    <label className="text-xs text-muted-foreground mb-1 block">Model</label>
-                    <div className="px-3 py-2 rounded-lg bg-secondary/30 text-sm">
-                      {selectedModel.name}
+                </div>
+              </div>
+
+              {/* Input */}
+              <div>
+                <label className="text-xs text-muted-foreground mb-1.5 block font-medium">Test Input</label>
+                <Textarea
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  placeholder="Enter test input..."
+                  rows={4}
+                  className="bg-secondary/30 border-border/50 resize-none font-mono text-sm"
+                />
+              </div>
+
+              {/* Run Button */}
+              <Button
+                onClick={handleRun}
+                disabled={isRunning || !input.trim()}
+                className="w-full gap-2 h-11"
+                size="lg"
+              >
+                {isRunning ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-4 h-4" />
+                    Run Prompt
+                  </>
+                )}
+              </Button>
+
+              {/* Output */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs text-muted-foreground font-medium">Response</label>
+                  <div className="flex items-center gap-4">
+                    {output && (
+                      <button
+                        onClick={handleCopyOutput}
+                        className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-smooth"
+                      >
+                        {copied ? <Check className="w-3.5 h-3.5 text-success" /> : <Copy className="w-3.5 h-3.5" />}
+                        {copied ? 'Copied!' : 'Copy'}
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setShowGoldenComparison(!showGoldenComparison)}
+                      className={cn(
+                        'flex items-center gap-1.5 text-xs transition-smooth',
+                        showGoldenComparison ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
+                      )}
+                    >
+                      {showGoldenComparison ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                      Golden
+                    </button>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs text-muted-foreground">Redact</span>
+                      <Switch
+                        checked={redactionEnabled}
+                        onCheckedChange={setRedactionEnabled}
+                      />
                     </div>
                   </div>
                 </div>
-
-                {/* Input */}
-                <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">Test Input</label>
-                  <Textarea
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    placeholder="Enter test input..."
-                    rows={3}
-                    className="bg-secondary/30 resize-none font-mono text-sm"
-                  />
+                <div className="p-4 rounded-xl bg-secondary/20 border border-border/30 min-h-[140px] font-mono text-sm whitespace-pre-wrap">
+                  {output || (
+                    <span className="text-muted-foreground italic">
+                      Output will appear here after running...
+                    </span>
+                  )}
                 </div>
 
-                {/* Run Button */}
+                {/* Golden Comparison */}
+                <AnimatePresence>
+                  {showGoldenComparison && output && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="mt-3 overflow-hidden"
+                    >
+                      <label className="text-xs text-muted-foreground mb-1.5 block font-medium">
+                        Golden Output (Expected)
+                      </label>
+                      <div className="p-4 rounded-xl bg-success/5 border border-success/20 min-h-[60px] font-mono text-sm">
+                        {goldenOutput}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </div>
+          </TabsContent>
+
+          {/* Tests Tab */}
+          <TabsContent value="tests" className="flex-1 overflow-auto m-0 p-6 pt-4">
+            <div className="space-y-4">
+              {/* Actions */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Button variant="outline" size="sm" className="gap-1.5">
+                    <Upload className="w-3.5 h-3.5" />
+                    Upload Cases
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={handleResetTests} className="gap-1.5 text-muted-foreground">
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    Reset
+                  </Button>
+                </div>
                 <Button
-                  onClick={handleRun}
-                  disabled={isRunning}
-                  className="w-full gap-2"
+                  onClick={handleRunTests}
+                  disabled={isRunningTests}
+                  className="gap-1.5"
                 >
-                  {isRunning ? (
+                  {isRunningTests ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
                       Running...
@@ -182,142 +312,81 @@ Just share the details and I'll do my best to assist you!`;
                   ) : (
                     <>
                       <Play className="w-4 h-4" />
-                      Run
+                      Run All Tests
                     </>
                   )}
                 </Button>
+              </div>
 
-                {/* Output */}
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-xs text-muted-foreground">Response</label>
-                    <div className="flex items-center gap-3">
-                      <button
-                        onClick={() => setShowGoldenComparison(!showGoldenComparison)}
-                        className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-smooth"
-                      >
-                        {showGoldenComparison ? 'Hide' : 'Compare'} Golden
-                      </button>
+              {/* Test Summary */}
+              {(passedCount > 0 || failedCount > 0) && (
+                <div className="flex items-center gap-4 p-3 rounded-xl bg-secondary/20 border border-border/30">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-success" />
+                    <span className="text-sm">{passedCount} passed</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <XCircle className="w-4 h-4 text-destructive" />
+                    <span className="text-sm">{failedCount} failed</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">
+                      {testCases.length - passedCount - failedCount} pending
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Test Cases */}
+              <div className="space-y-2">
+                {testCases.map((test, idx) => (
+                  <motion.div
+                    key={test.id}
+                    initial={{ opacity: 0, y: 4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: idx * 0.03 }}
+                    className={cn(
+                      'p-4 rounded-xl border transition-all duration-200',
+                      test.status === 'passed' && 'bg-success/5 border-success/30',
+                      test.status === 'failed' && 'bg-destructive/5 border-destructive/30',
+                      test.status === 'pending' && 'bg-secondary/20 border-border/30 hover:border-border/50'
+                    )}
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <span className="text-sm font-medium">{test.name}</span>
                       <div className="flex items-center gap-1.5">
-                        <span className="text-xs text-muted-foreground">Redact</span>
-                        <Switch
-                          checked={redactionEnabled}
-                          onCheckedChange={setRedactionEnabled}
-                        />
+                        {test.status === 'passed' && (
+                          <>
+                            <CheckCircle className="w-4 h-4 text-success" />
+                            <span className="text-xs text-success font-medium">Passed</span>
+                          </>
+                        )}
+                        {test.status === 'failed' && (
+                          <>
+                            <XCircle className="w-4 h-4 text-destructive" />
+                            <span className="text-xs text-destructive font-medium">Failed</span>
+                          </>
+                        )}
+                        {test.status === 'pending' && (
+                          <>
+                            <Clock className="w-4 h-4 text-muted-foreground" />
+                            <span className="text-xs text-muted-foreground">Pending</span>
+                          </>
+                        )}
                       </div>
                     </div>
-                  </div>
-                  <div className="p-4 rounded-lg bg-secondary/20 min-h-[120px] font-mono text-sm whitespace-pre-wrap">
-                    {output || (
-                      <span className="text-muted-foreground">
-                        Output will appear here...
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Golden Comparison */}
-                  <AnimatePresence>
-                    {showGoldenComparison && output && (
-                      <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: 'auto', opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        className="mt-2 overflow-hidden"
-                      >
-                        <label className="text-xs text-muted-foreground mb-1 block">
-                          Golden Output (Expected)
-                        </label>
-                        <div className="p-4 rounded-lg bg-success/10 border border-success/20 min-h-[60px] font-mono text-sm">
-                          {goldenOutput}
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-              </div>
-
-              {/* Right: Regression Tests */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-sm font-medium">Regression Tests</h4>
-                  <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" className="gap-1.5">
-                      <Upload className="w-3.5 h-3.5" />
-                      Upload
-                    </Button>
-                    <Button
-                      variant="default"
-                      size="sm"
-                      onClick={handleRunTests}
-                      disabled={isRunningTests}
-                      className="gap-1.5"
-                    >
-                      {isRunningTests ? (
-                        <>
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          Running...
-                        </>
-                      ) : (
-                        <>
-                          <Play className="w-3.5 h-3.5" />
-                          Run All
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  {testCases.map((test, idx) => (
-                    <motion.div
-                      key={test.id}
-                      initial={{ opacity: 0, y: 4 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: idx * 0.05 }}
-                      className={cn(
-                        'p-4 rounded-xl border transition-smooth',
-                        test.status === 'passed' && 'bg-success/5 border-success/20',
-                        test.status === 'failed' && 'bg-destructive/5 border-destructive/20',
-                        test.status === 'pending' && 'bg-secondary/30 border-border/50'
-                      )}
-                    >
-                      <div className="flex items-start justify-between mb-2">
-                        <span className="text-sm font-medium">{test.name}</span>
-                        <div className="flex items-center gap-1.5">
-                          {test.status === 'passed' && (
-                            <>
-                              <CheckCircle className="w-4 h-4 text-success" />
-                              <span className="text-xs text-success">Passed</span>
-                            </>
-                          )}
-                          {test.status === 'failed' && (
-                            <>
-                              <XCircle className="w-4 h-4 text-destructive" />
-                              <span className="text-xs text-destructive">Failed</span>
-                            </>
-                          )}
-                          {test.status === 'pending' && (
-                            <>
-                              <Clock className="w-4 h-4 text-muted-foreground" />
-                              <span className="text-xs text-muted-foreground">Pending</span>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        <span className="font-mono bg-secondary/30 px-1.5 py-0.5 rounded">
-                          {test.input.slice(0, 40)}
-                          {test.input.length > 40 && '...'}
-                        </span>
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
+                    <div className="text-xs text-muted-foreground font-mono bg-secondary/30 px-2 py-1.5 rounded-lg">
+                      {test.input.slice(0, 60)}
+                      {test.input.length > 60 && '...'}
+                    </div>
+                  </motion.div>
+                ))}
               </div>
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </motion.div>
+          </TabsContent>
+        </Tabs>
+      </DialogContent>
+    </Dialog>
   );
 }

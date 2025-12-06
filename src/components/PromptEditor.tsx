@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Save,
@@ -6,10 +6,10 @@ import {
   GitPullRequest,
   Thermometer,
   FileCode,
-  Puzzle,
   ChevronDown,
   Plus,
   Zap,
+  FlaskConical,
 } from 'lucide-react';
 import { Model, promptTemplates, estimateTokens } from '@/lib/mockData';
 import { TokenMeter } from './TokenMeter';
@@ -29,15 +29,7 @@ interface PromptEditorProps {
   onSave: () => void;
   onBranch: () => void;
   onPR: () => void;
-}
-
-type EditorMode = 'raw' | 'visual';
-
-interface PromptBlock {
-  id: string;
-  type: 'system' | 'format' | 'safety' | 'custom';
-  title: string;
-  content: string;
+  onOpenPlayground: () => void;
 }
 
 export function PromptEditor({
@@ -47,8 +39,8 @@ export function PromptEditor({
   onSave,
   onBranch,
   onPR,
+  onOpenPlayground,
 }: PromptEditorProps) {
-  const [mode, setMode] = useState<EditorMode>('raw');
   const [temperature, setTemperature] = useState(0.7);
   const [showTemplates, setShowTemplates] = useState(false);
   const [hoveredLine, setHoveredLine] = useState<number | null>(null);
@@ -56,7 +48,6 @@ export function PromptEditor({
   const tokenCount = estimateTokens(content);
   const lines = content.split('\n');
 
-  // Mock token counts per line (in production, use actual tokenizer)
   const getLineTokens = (line: string) => estimateTokens(line);
 
   const insertTemplate = (template: typeof promptTemplates[0]) => {
@@ -69,32 +60,10 @@ export function PromptEditor({
       {/* Toolbar */}
       <div className="flex items-center justify-between p-4 border-b border-border/50">
         <div className="flex items-center gap-3">
-          {/* Mode Toggle */}
-          <div className="flex items-center p-1 rounded-lg bg-secondary/50">
-            <button
-              onClick={() => setMode('raw')}
-              className={cn(
-                'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-smooth',
-                mode === 'raw'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:text-foreground'
-              )}
-            >
-              <FileCode className="w-4 h-4" />
-              Raw
-            </button>
-            <button
-              onClick={() => setMode('visual')}
-              className={cn(
-                'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-smooth',
-                mode === 'visual'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:text-foreground'
-              )}
-            >
-              <Puzzle className="w-4 h-4" />
-              Visual
-            </button>
+          {/* Editor Label */}
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary/50">
+            <FileCode className="w-4 h-4 text-primary" />
+            <span className="text-sm font-medium">Prompt Editor</span>
           </div>
 
           {/* Temperature Slider */}
@@ -122,6 +91,16 @@ export function PromptEditor({
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="outline" size="sm" onClick={onOpenPlayground} className="gap-1.5">
+                <FlaskConical className="w-4 h-4" />
+                Test
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Open Playground & Testing</TooltipContent>
+          </Tooltip>
+
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant="outline" size="sm" onClick={onSave} className="gap-1.5">
@@ -159,73 +138,69 @@ export function PromptEditor({
       <div className="flex-1 flex overflow-hidden">
         {/* Main Editor */}
         <div className="flex-1 relative">
-          {mode === 'raw' ? (
-            <div className="absolute inset-0 overflow-auto p-4">
-              {/* Line Numbers + Content */}
-              <div className="font-mono text-sm flex">
-                {/* Line Numbers */}
-                <div className="select-none text-right pr-4 text-muted-foreground/50 border-r border-border/30 mr-4">
-                  {lines.map((_, i) => (
-                    <div key={i} className="h-6 leading-6">
-                      {i + 1}
-                    </div>
-                  ))}
-                </div>
-
-                {/* Content with Token Hotspots */}
-                <div className="flex-1">
-                  {lines.map((line, i) => {
-                    const lineTokens = getLineTokens(line);
-                    const isHot = lineTokens > 15;
-
-                    return (
-                      <div
-                        key={i}
-                        className={cn(
-                          'h-6 leading-6 px-2 rounded transition-all duration-150',
-                          hoveredLine === i && 'bg-secondary/50',
-                          isHot && hoveredLine === i && 'bg-warning/10'
-                        )}
-                        onMouseEnter={() => setHoveredLine(i)}
-                        onMouseLeave={() => setHoveredLine(null)}
-                      >
-                        <span className={cn(isHot && 'token-hotspot')}>
-                          {line || '\u00A0'}
-                        </span>
-                        <AnimatePresence>
-                          {hoveredLine === i && lineTokens > 0 && (
-                            <motion.span
-                              initial={{ opacity: 0, x: -4 }}
-                              animate={{ opacity: 1, x: 0 }}
-                              exit={{ opacity: 0 }}
-                              className={cn(
-                                'ml-4 text-xs px-1.5 py-0.5 rounded',
-                                isHot
-                                  ? 'bg-warning/20 text-warning'
-                                  : 'bg-muted text-muted-foreground'
-                              )}
-                            >
-                              {lineTokens} tokens
-                            </motion.span>
-                          )}
-                        </AnimatePresence>
-                      </div>
-                    );
-                  })}
-                </div>
+          <div className="absolute inset-0 overflow-auto p-4">
+            {/* Line Numbers + Content */}
+            <div className="font-mono text-sm flex">
+              {/* Line Numbers */}
+              <div className="select-none text-right pr-4 text-muted-foreground/50 border-r border-border/30 mr-4">
+                {lines.map((_, i) => (
+                  <div key={i} className="h-6 leading-6">
+                    {i + 1}
+                  </div>
+                ))}
               </div>
 
-              {/* Actual Textarea (invisible, for editing) */}
-              <textarea
-                value={content}
-                onChange={(e) => onContentChange(e.target.value)}
-                className="absolute inset-0 w-full h-full opacity-0 cursor-text resize-none font-mono text-sm p-4"
-                spellCheck={false}
-              />
+              {/* Content with Token Hotspots */}
+              <div className="flex-1">
+                {lines.map((line, i) => {
+                  const lineTokens = getLineTokens(line);
+                  const isHot = lineTokens > 15;
+
+                  return (
+                    <div
+                      key={i}
+                      className={cn(
+                        'h-6 leading-6 px-2 rounded transition-all duration-150',
+                        hoveredLine === i && 'bg-secondary/50',
+                        isHot && hoveredLine === i && 'bg-warning/10'
+                      )}
+                      onMouseEnter={() => setHoveredLine(i)}
+                      onMouseLeave={() => setHoveredLine(null)}
+                    >
+                      <span className={cn(isHot && 'token-hotspot')}>
+                        {line || '\u00A0'}
+                      </span>
+                      <AnimatePresence>
+                        {hoveredLine === i && lineTokens > 0 && (
+                          <motion.span
+                            initial={{ opacity: 0, x: -4 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0 }}
+                            className={cn(
+                              'ml-4 text-xs px-1.5 py-0.5 rounded',
+                              isHot
+                                ? 'bg-warning/20 text-warning'
+                                : 'bg-muted text-muted-foreground'
+                            )}
+                          >
+                            {lineTokens} tokens
+                          </motion.span>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-          ) : (
-            <VisualBuilder content={content} onContentChange={onContentChange} />
-          )}
+
+            {/* Actual Textarea (invisible, for editing) */}
+            <textarea
+              value={content}
+              onChange={(e) => onContentChange(e.target.value)}
+              className="absolute inset-0 w-full h-full opacity-0 cursor-text resize-none font-mono text-sm p-4"
+              spellCheck={false}
+            />
+          </div>
         </div>
 
         {/* Templates Panel */}
@@ -285,53 +260,6 @@ export function PromptEditor({
           )}
         />
       </button>
-    </div>
-  );
-}
-
-// Visual Builder Component
-function VisualBuilder({
-  content,
-  onContentChange,
-}: {
-  content: string;
-  onContentChange: (content: string) => void;
-}) {
-  // Parse content into blocks (simplified)
-  const sections = content.split(/\n## /).filter(Boolean);
-
-  return (
-    <div className="p-6 space-y-4 overflow-auto">
-      <p className="text-sm text-muted-foreground mb-4">
-        Drag and drop blocks to restructure your prompt
-      </p>
-      {sections.map((section, i) => {
-        const [title, ...lines] = section.split('\n');
-        const blockContent = lines.join('\n').trim();
-
-        return (
-          <motion.div
-            key={i}
-            className="glass-panel p-4 cursor-move"
-            whileHover={{ scale: 1.005 }}
-            whileDrag={{ scale: 1.02, boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}
-            drag
-            dragConstraints={{ top: 0, bottom: 0 }}
-          >
-            <div className="flex items-center justify-between mb-2">
-              <h4 className="text-sm font-medium text-primary">
-                {i === 0 ? title : `## ${title}`}
-              </h4>
-              <span className="text-xs text-muted-foreground">
-                {estimateTokens(blockContent)} tokens
-              </span>
-            </div>
-            <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-              {blockContent}
-            </p>
-          </motion.div>
-        );
-      })}
     </div>
   );
 }
